@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Web Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no;">
+  <style>
+    html {
+      font-size: 10px;
+    }
+
+    body {
+      margin: 0;
+      padding-bottom: 4.8rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    #form {
+      background: rgba(0, 0, 0, 0.15);
+      padding: 0.4rem;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      width: 100%;
+      height: 4.8rem;
+      box-sizing: border-box;
+      backdrop-filter: blur(10px);
+    }
+
+    #input {
+      border: none;
+      padding: 0 1.6rem;
+      flex-grow: 1;
+      border-radius: 3.2rem;
+      margin: 0.4rem;
+    }
+
+    #input:focus {
+      outline: none;
+    }
+
+    #submitBtn {
+      width: 7rem;
+      height: 3.3rem;
+      background: #333;
+      border: none;
+      padding: 0 1.6rem;
+      margin: 0.4rem;
+      border-radius: 3px;
+      outline: none;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    #imgDIV {
+      width: 4rem;
+      /* height: 3.2rem; */
+      background-color: #333333;
+      color: white;
+      text-align: center;
+      padding: 0 1.6rem;
+      margin: 0.4rem;
+      border-radius: 3px;
+      text-align: center;
+      padding-top: 0.7rem;
+      padding-bottom: 0.7rem;
+      cursor: pointer;
+    }
+
+    .imgSpan {
+      font-size: 1.4rem;
+    }
+
+    #img {
+      display: none;
+    }
+
+    #messages {
+      list-style-type: none;
+      margin: 0;
+      padding: 0;
+      font-size: 1.6rem;
+    }
+
+    #messages>li {
+      padding: 0.8rem 1.6rem;
+      height: 3rem;
+    }
+
+    .systemAlert {
+      color: gray;
+      font-size: 1.2rem;
+      text-align: center;
+    }
+
+    .username {
+      font-weight: normal;
+    }
+
+    .time {
+      font-size: 1rem;
+      color: gray;
+    }
+
+    .msg {
+      font-weight: normal;
+    }
+
+    .msgFile {
+      text-decoration: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="boxDIV">
+    <ul id="messages"></ul>
+    <form id="form" action="">
+      <input id="input" autofocus="autofocus" autocomplete="off" />
+      <label for="img">
+        <div id="imgDIV">
+          <span class="imgSpan">图片</span>
+          <input id="img" type="file">
+        </div>
+      </label>
+      <input id="submitBtn" type="submit" value="发送">
+    </form>
+  </div>
+
+
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    var socket = io();
+    var usersLength = 0;
+    var defaultUsername = "用户";
+    var defaultUsername = prompt("请输入你的昵称，最长4位", "访客");
+    defaultUsername = defaultUsername.substring(0, 4);
+    if (defaultUsername == null || defaultUsername == '') {
+      defaultUsername = "visitor";
+    }
+    socket.emit('login', defaultUsername);
+    socket.on('login', function (username, usersLength) {
+      var tempDate = new Date();
+      var time = tempDate.getHours() + ":" + tempDate.getMinutes();
+      var item = document.createElement('li');
+      item.innerHTML = "<span class='time'>[" + time + "]</span><span class='systemAlert'>  '" + username + "' 加入了聊天，当前共" + usersLength + "人在线 </span>";
+      messages.appendChild(item);
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+    socket.on('logout', function (username, usersLength) {
+      var tempDate = new Date();
+      var time = tempDate.getHours() + ":" + tempDate.getMinutes();
+      var item = document.createElement('li');
+      item.innerHTML = "<span class='time'>[" + time + "]</span><span class='systemAlert'>  '" + username + "' 退出了聊天，当前共" + usersLength + "人在线 </span>";
+      messages.appendChild(item);
+      window.scrollTo(0, document.body.scrollHeight);
+    })
+
+    // send msg
+    var messages = document.getElementById('messages');
+    var form = document.getElementById('form');
+    var input = document.getElementById('input');
+    var msg, time;
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (input.value) {
+        socket.emit('chat message', input.value);
+        input.value = '';
+      }
+    });
+    socket.on('chat message', function (username, time, msg) {
+      var item = document.createElement('li');
+      item.innerHTML = "<span class='time'>[" + time + "]</span><span class='username'>【" + username + "】</span> :&nbsp; <span class='msg'>" + msg + "</span>";
+      messages.appendChild(item);
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+
+    // 发送图片
+    document.getElementById("img").addEventListener("change", function () {
+      var file = document.getElementById("img").files[0];
+      var r = new FileReader();
+      r.readAsDataURL(file);
+      r.onload = function () {
+        str = r.result;
+        socket.emit('sendImg', str);
+      }
+    });
+    socket.on('receiveImg', function (username, time, _imgBase64) {
+      var item = document.createElement('li');
+      // item.innerHTML ='[' + username + ']:  ' + '<img src=\"' + _imgBase64 + '\">';
+      item.innerHTML = "<span class='time'>[" + time + "]</span><span class='username'>【" + username + "】</span> :&nbsp; <a class='msgFile' download='' href='" + _imgBase64 + "' target='_blank'>请右键在新标签页中查看</a>";
+      messages.appendChild(item);
+      window.scrollTo(0, document.body.scrollHeight);
+    })
+  </script>
+</body>
+
+</html>
